@@ -1,0 +1,317 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice AI Campus Assistant</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: #1e293b; padding: 2rem; border-radius: 1rem; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }
+    button { background: #3b82f6; color: white; border: none; padding: 1rem 2rem; font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s; margin-top: 1rem; }
+    button:hover { background: #2563eb; }
+    button.recording { background: #ef4444; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    .box { background: #334155; margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; text-align: left; min-height: 50px; }
+    .source { font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🎙️ Voice AI Assistant</h2>
+    <p>Hold the button and ask a question about your college documents.</p>
+    
+    <button id="recordBtn">Press to Speak</button>
+
+    <div class="box"><strong>You said:</strong> <span id="transcript">-</span></div>
+    <div class="box"><strong>AI Response:</strong> <span id="response">-</span></div>
+    <div class="source" id="sources"></div>
+  </div>
+
+  <script>
+    let ws = new WebSocket(`ws://${location.host}/ws/voice`);
+    let mediaRecorder;
+    let audioChunks = [];
+    const recordBtn = document.getElementById('recordBtn');
+
+    ws.onmessage = async (event) => {
+      if (typeof event.data === "string") {
+        let data = JSON.parse(event.data);
+        if (data.type === "transcript") document.getElementById('transcript').innerText = data.text;
+        if (data.type === "answer") {
+          document.getElementById('response').innerText = data.text;
+          document.getElementById('sources').innerText = "Sources: " + data.sources.join(" | ");
+        }
+      } else {
+        // Audio output from TTS
+        let blob = new Blob([event.data], { type: 'audio/mp3' });
+        let audio = new Audio(URL.createObjectURL(blob));
+        audio.play();
+      }
+    };
+
+    recordBtn.addEventListener('mousedown', async () => {
+      let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.start();
+      recordBtn.classList.add('recording');
+      recordBtn.innerText = "Listening...";
+    });
+
+    recordBtn.addEventListener('mouseup', () => {
+      mediaRecorder.stop();
+      recordBtn.classList.remove('recording');
+      recordBtn.innerText = "Press to Speak";
+      mediaRecorder.onstop = async () => {
+        let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        let arrayBuffer = await audioBlob.arrayBuffer();
+        ws.send(arrayBuffer);
+      };
+    });
+  </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice AI Campus Assistant</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 1rem;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 1rem;
+      user-select: none;
+    }
+    button:hover { background: #2563eb; }
+    button.recording {
+      background: #ef4444;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .box {
+      background: #334155;
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      text-align: left;
+      min-height: 50px;
+      word-wrap: break-word;
+    }
+    .source-box {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 0.8rem;
+      text-align: left;
+      background: #0f172a;
+      padding: 0.8rem;
+      border-radius: 0.5rem;
+      line-height: 1.4;
+      white-space: normal;
+    }
+    .status {
+      font-size: 0.8rem;
+      color: #22c55e;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🎙️ Voice enabled AI chatbot</h2>
+    <div class="status" id="wsStatus">● Connected</div>
+    <p>Press & Hold the button, speak clearly, then release.</p>
+    
+    <button id="recordBtn">Hold to Speak</button>
+
+    <div class="box"><strong>You said:</strong> <span id="transcript">-</span></div>
+    <div class="box"><strong>AI Response:</strong> <span id="response">-</span></div>
+    <div class="source-box" id="sources"><strong>Sources:</strong> -</div>
+  </div>
+
+  <script>
+    let ws;
+    let mediaRecorder;
+    let audioChunks = [];
+    let mediaStream;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const wsStatus = document.getElementById('wsStatus');
+
+    function connectWebSocket() {
+      ws = new WebSocket(`ws://${location.host}/ws/voice`);
+
+      ws.onopen = () => {
+        wsStatus.innerText = "● Connected";
+        wsStatus.style.color = "#22c55e";
+      };
+
+      // ws.onmessage = async (event) => {
+      //   if (typeof event.data === "string") {
+      //     let data = JSON.parse(event.data);
+      //     if (data.type === "transcript") {
+      //       document.getElementById('transcript').innerText = data.text;
+      //     }
+      //     if (data.type === "answer") {
+      //       document.getElementById('response').innerText = data.text;
+      //       document.getElementById('sources').innerHTML = "<strong>Sources:</strong> " + data.sources.join(" <br>• ");
+      //     }
+      //   } else {
+      //     // Play returned TTS audio
+      //     let blob = new Blob([event.data], { type: 'audio/mp3' });
+      //     let audio = new Audio(URL.createObjectURL(blob));
+      //     audio.play();
+      //   }
+      // };
+
+      // Global audio element to re-use
+
+
+
+
+      // let currentAudio = new Audio();
+
+      // ws.onmessage = async (event) => {
+      //   if (typeof event.data === "string") {
+      //     let data = JSON.parse(event.data);
+      //     if (data.type === "transcript") {
+      //       document.getElementById('transcript').innerText = data.text;
+      //     }
+      //     if (data.type === "answer") {
+      //       document.getElementById('response').innerText = data.text;
+      //       document.getElementById('sources').innerHTML = "<strong>Sources:</strong> " + data.sources.join(" <br>• ");
+      //     }
+      //   } else {
+      //     // 🔊 SPEECH RESPONSE PLAYBACK
+      //     let blob = new Blob([event.data], { type: 'audio/mp3' });
+      //     let audioUrl = URL.createObjectURL(blob);
+          
+      //     // Stop any previously playing response before starting the new one
+      //     currentAudio.pause();
+      //     currentAudio.src = audioUrl;
+          
+      //     currentAudio.play().catch(err => {
+      //       console.log("Autoplay blocked or audio interrupted:", err);
+      //     });
+      //   }
+      // };
+
+      // Initialize Web Audio API Context
+//const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+ws.onmessage = async (event) => {
+  let data = JSON.parse(event.data);
+  
+  if (data.type === "transcript") {
+    document.getElementById('transcript').innerText = data.text;
+  }
+  
+  if (data.type === "answer") {
+    document.getElementById('response').innerText = data.text;
+    document.getElementById('sources').innerHTML = "<strong>Sources:</strong> " + data.sources.join(" <br>• ");
+  }
+
+  // 🔊 SPEECH PLAYBACK ENGINE (Base64)
+  if (data.type === "audio") {
+    let audioSrc = "data:audio/mp3;base64," + data.audio;
+    let sound = new Audio(audioSrc);
+    
+    // Play audio out loud
+    sound.play().catch(error => {
+      console.error("Audio playback error:", error);
+      alert("Click anywhere on the webpage once to allow browser audio playback!");
+    });
+  }
+};
+
+
+      ws.onclose = () => {
+        wsStatus.innerText = "○ Disconnected (Reconnecting...)";
+        wsStatus.style.color = "#ef4444";
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    connectWebSocket();
+
+    // Start recording on mouse down or touch start
+    async function startRecording(e) {
+      e.preventDefault();
+      try {
+        if (!mediaStream) {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(mediaStream);
+
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.start();
+        recordBtn.classList.add('recording');
+        recordBtn.innerText = "Listening... (Release when done)";
+      } catch (err) {
+        alert("Microphone permission denied or not found!");
+      }
+    }
+
+    // Stop recording on mouse up or touch end
+    function stopRecording(e) {
+      e.preventDefault();
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        recordBtn.classList.remove('recording');
+        recordBtn.innerText = "Hold to Speak";
+
+        // Slight delay to capture full trailing audio word
+        setTimeout(() => {
+          mediaRecorder.stop();
+          mediaRecorder.onstop = async () => {
+            let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            if (audioBlob.size > 1000 && ws.readyState === WebSocket.OPEN) {
+              let arrayBuffer = await audioBlob.arrayBuffer();
+              ws.send(arrayBuffer);
+            }
+          };
+        }, 300);
+      }
+    }
+
+    recordBtn.addEventListener('mousedown', startRecording);
+    recordBtn.addEventListener('mouseup', stopRecording);
+    recordBtn.addEventListener('touchstart', startRecording);
+    recordBtn.addEventListener('touchend', stopRecording);
+  </script>
+</body>
+</html>
